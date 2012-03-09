@@ -9,10 +9,22 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{E55C3D
 		.nuget\NuGet.targets = .nuget\NuGet.targets
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WireBus.Tests", "test\WireBus.Tests\WireBus.Tests.csproj", "{E5AF7061-6931-4758-B0AE-4FE59766BD40}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{D5F2D10F-C8FC-44B1-ABBB-4F37C85BF9F5}"
+	ProjectSection(SolutionItems) = preProject
+		Local.testsettings = Local.testsettings
+		TraceAndTestImpact.testsettings = TraceAndTestImpact.testsettings
+		WireBus.vsmdi = WireBus.vsmdi
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(MercurialSourceControlSolutionProperties) = preSolution
 		SolutionIsControlled = True
 		SolutionBindings = <Solution Location In Database>
+	EndGlobalSection
+	GlobalSection(TestCaseManagementSettings) = postSolution
+		CategoryFile = WireBus.vsmdi
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,6 +35,10 @@ Global
 		{9EE42870-FCC3-46B7-9F13-71139F2FCD36}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9EE42870-FCC3-46B7-9F13-71139F2FCD36}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9EE42870-FCC3-46B7-9F13-71139F2FCD36}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E5AF7061-6931-4758-B0AE-4FE59766BD40}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E5AF7061-6931-4758-B0AE-4FE59766BD40}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E5AF7061-6931-4758-B0AE-4FE59766BD40}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5AF7061-6931-4758-B0AE-4FE59766BD40}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

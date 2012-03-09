@@ -2,10 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq.Expressions;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using ProtoBuf;
+using ProtoBuf.Meta;
 using ProtoBuf.ServiceModel;
 
 namespace WireBus
@@ -37,6 +39,8 @@ namespace WireBus
                 object envelope;
                 Serializer.NonGeneric.TryDeserializeWithLengthPrefix(_client.GetStream(), PrefixStyle.Base128, unused => _envelopeType, out envelope);
                 var env = envelope as IEnvelope;
+                if (envelope == null)
+                    throw new InvalidEnvelopeException("Invalid or null envelope.");
                 var type = Type.GetType(env.TypeName);
                 object message;
                 Serializer.NonGeneric.TryDeserializeWithLengthPrefix(stream, PrefixStyle.Base128, unused => type, out message);
@@ -67,6 +71,39 @@ namespace WireBus
         {
             foreach (var message in messages)
                 Send(message);
+        }
+
+        public void Disconnect()
+        {
+            _client.Close();
+        }
+
+        public static Task<WireBus> ConnectAsync(string host, int port)
+        {
+            var client = new TcpClient();
+            return Task.Factory.FromAsync(client.BeginConnect, client.EndConnect, host, port, null)
+                .ContinueWith(task => new WireBus(client));
+        }
+
+        public static Task<WireBus> ConnectAsync(IPAddress host, int port)
+        {
+            var client = new TcpClient();
+            return Task.Factory.FromAsync(client.BeginConnect, client.EndConnect, host, port, null)
+                .ContinueWith(task => new WireBus(client));
+        }
+
+        public static WireBus Connect(string host, int port)
+        {
+            var bus = ConnectAsync(host, port);
+            bus.Wait();
+            return bus.Result;
+        }
+
+        public static WireBus Connect(IPAddress host, int port)
+        {
+            var bus = ConnectAsync(host, port);
+            bus.Wait();
+            return bus.Result;
         }
     }
 }

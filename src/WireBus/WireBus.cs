@@ -12,6 +12,9 @@ using ProtoBuf.ServiceModel;
 
 namespace WireBus
 {
+    /// <summary>
+    /// A WireBus client, responsible for wrapping a TCP/IP connection and serializing the data going over the bus.
+    /// </summary>
     public class WireBus
     {
         private Type _envelopeType = typeof(DefaultMessageEnvelope);
@@ -22,6 +25,11 @@ namespace WireBus
             _client = client;
         }
 
+        /// <summary>
+        /// Receive a message from the peer, blocking until one is available.
+        /// </summary>
+        /// <typeparam name="T">the type of message</typeparam>
+        /// <returns>the message retrieved</returns>
         public Task<T> ReceiveAsync<T>()
         {
             return ReceiveWithEnvelopeAsync<T>().ContinueWith(task =>
@@ -31,6 +39,11 @@ namespace WireBus
                                                                   });
         }
 
+        /// <summary>
+        /// Receive a message and its envelope from the peer, blocking until a message is available.
+        /// </summary>
+        /// <typeparam name="T">the type of message</typeparam>
+        /// <returns>the message and envelope retrieved</returns>
         public Task<Tuple<T, IEnvelope>> ReceiveWithEnvelopeAsync<T>()
         {
             return Task.Factory.StartNew(delegate()
@@ -49,6 +62,10 @@ namespace WireBus
             });
         }
 
+        /// <summary>
+        /// Send a message to the peer.
+        /// </summary>
+        /// <param name="message">the message to send</param>
         public void Send(object message)
         {
             var envelope = Activator.CreateInstance(_envelopeType) as IEnvelope;
@@ -62,22 +79,29 @@ namespace WireBus
             }
         }
 
+        /// <summary>
+        /// Send a message to the peer.
+        /// </summary>
+        /// <param name="message">the message to send</param>
         public Task SendAsync(object message)
         {
             return Task.Factory.StartNew(() => Send(message));
         }
 
-        public void SendBatch(object[] messages)
-        {
-            foreach (var message in messages)
-                Send(message);
-        }
-
+        /// <summary>
+        /// Disconnect from the peer.
+        /// </summary>
         public void Disconnect()
         {
             _client.Close();
         }
 
+        /// <summary>
+        /// Connect to a peer, returning a new WireBus.
+        /// </summary>
+        /// <param name="host">the target host</param>
+        /// <param name="port">the target port</param>
+        /// <returns>the WireBus wrapping the new connection</returns>
         public static Task<WireBus> ConnectAsync(string host, int port)
         {
             var client = new TcpClient();
@@ -85,6 +109,12 @@ namespace WireBus
                 .ContinueWith(task => new WireBus(client));
         }
 
+        /// <summary>
+        /// Connect to a peer, returning a new WireBus.
+        /// </summary>
+        /// <param name="host">the target host</param>
+        /// <param name="port">the target port</param>
+        /// <returns>the WireBus wrapping the new connection</returns>
         public static Task<WireBus> ConnectAsync(IPAddress host, int port)
         {
             var client = new TcpClient();
@@ -92,6 +122,12 @@ namespace WireBus
                 .ContinueWith(task => new WireBus(client));
         }
 
+        /// <summary>
+        /// Connect to a peer, returning a new WireBus.
+        /// </summary>
+        /// <param name="host">the target host</param>
+        /// <param name="port">the target port</param>
+        /// <returns>the WireBus wrapping the new connection</returns>
         public static WireBus Connect(string host, int port)
         {
             var bus = ConnectAsync(host, port);
@@ -99,6 +135,12 @@ namespace WireBus
             return bus.Result;
         }
 
+        /// <summary>
+        /// Connect to a peer, returning a new WireBus.
+        /// </summary>
+        /// <param name="host">the target host</param>
+        /// <param name="port">the target port</param>
+        /// <returns>the WireBus wrapping the new connection</returns>
         public static WireBus Connect(IPAddress host, int port)
         {
             var bus = ConnectAsync(host, port);

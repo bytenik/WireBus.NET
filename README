@@ -1,0 +1,3 @@
+WireBus.NET is a loose wrapper around the .NET network I/O libraries in conjunction with ProtoBuf.
+
+It allows messages (objects) to be sent down the wire (using ProtoBuf serialization) rather than relying on manual serialization and byte-oriented connections.

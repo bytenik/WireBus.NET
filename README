@@ -12,7 +12,7 @@ Usage is extremely simple. To wait for connections, create a WireBusHost and ret
 
 To connect to a WireBus.NET host, use the static Connect method on WireBus:
 
-    var wirebus = WireBus.Connect("localhost", 1234); // connect to localhost, port 1234 -- this could also be done async
+    var wirebus = WireBus.Connect("localhost", 1234); // connect to localhost:1234
 
 Send messages to the other peer using the Send method:
 

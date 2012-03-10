@@ -21,6 +21,7 @@ namespace WireBus.Tests
             var serverTask = host.AcceptWireBusAsync();
             var client = WireBus.Connect(IPAddress.Loopback, port);
             serverTask.Wait();
+            host.Stop();
         }
 
         [Serializable, DataContract]
@@ -42,6 +43,7 @@ namespace WireBus.Tests
             var server = serverTask.Result;
             var messageTask = client.ReceiveAsync<TestMessage>();
             server.Disconnect();
+            host.Stop();
             try
             {
                 try
@@ -58,6 +60,12 @@ namespace WireBus.Tests
                 return;
             }
             Assert.Fail();
+        }
+
+        [TestMethod]
+        public void VerifyData()
+        {
+            
         }
     }
 }

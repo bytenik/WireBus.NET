@@ -44,6 +44,15 @@ namespace WireBus
         }
 
         /// <summary>
+        /// Creates a new host configured to listen on the specified IP and port
+        /// </summary>
+        /// <param name="endpoint">the local endpoint</param>
+        public WireBusListener(IPEndPoint endpoint)
+        {
+            _listener = new TcpListener(endpoint);
+        }
+
+        /// <summary>
         /// Start listening for new connections.
         /// </summary>
         public void Start()

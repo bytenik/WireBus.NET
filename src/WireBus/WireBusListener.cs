@@ -8,7 +8,10 @@ using System.Threading.Tasks;
 
 namespace WireBus
 {
-    public class WireBusHost : IDisposable
+    /// <summary>
+    /// A listener for receiving incoming WireBus.NET connections.
+    /// </summary>
+    public class WireBusListener : IDisposable
     {
         private readonly TcpListener _listener;
 
@@ -16,7 +19,7 @@ namespace WireBus
         /// Create a new host using an existing listener.
         /// </summary>
         /// <param name="listener">a preexisting TcpListener</param>
-        public WireBusHost(TcpListener listener)
+        public WireBusListener(TcpListener listener)
         {
             _listener = listener;
         }
@@ -25,7 +28,7 @@ namespace WireBus
         /// Create a new host configured to listen on all IP addresses with the specified port
         /// </summary>
         /// <param name="port">the local port</param>
-        public WireBusHost(int port)
+        public WireBusListener(int port)
         {
             _listener = new TcpListener(IPAddress.Any, port);
         }
@@ -35,7 +38,7 @@ namespace WireBus
         /// </summary>
         /// <param name="address">local address</param>
         /// <param name="port">local port</param>
-        public WireBusHost(IPAddress address, int port)
+        public WireBusListener(IPAddress address, int port)
         {
             _listener = new TcpListener(address, port);
         }
@@ -60,7 +63,7 @@ namespace WireBus
         /// Accept a new WireBus client.
         /// </summary>
         /// <returns></returns>
-        public Task<WireBus> AcceptWireBusAsync()
+        public Task<WireBusClient> AcceptWireBusAsync()
         {
             return Task<TcpClient>.Factory.FromAsync(_listener.BeginAcceptTcpClient, _listener.EndAcceptTcpClient, null)
                 .ContinueWith(task =>
@@ -68,7 +71,7 @@ namespace WireBus
                                       if (task.Exception != null)
                                           return null;
 
-                                      var bus = new WireBus(task.Result);
+                                      var bus = new WireBusClient(task.Result);
                                       return bus;
                                   });
         }

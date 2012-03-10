@@ -16,10 +16,10 @@ namespace WireBus.Tests
         public void Connect()
         {
             const int port = 12345;
-            var host = new WireBusHost(IPAddress.Loopback, port);
+            var host = new WireBusListener(IPAddress.Loopback, port);
             host.Start();
             var serverTask = host.AcceptWireBusAsync();
-            var client = WireBus.Connect(IPAddress.Loopback, port);
+            var client = WireBusClient.Connect(IPAddress.Loopback, port);
             serverTask.Wait();
             host.Stop();
         }
@@ -35,10 +35,10 @@ namespace WireBus.Tests
         public void ConnectAndDisconnect()
         {
             const int port = 12345;
-            var host = new WireBusHost(IPAddress.Loopback, port);
+            var host = new WireBusListener(IPAddress.Loopback, port);
             host.Start();
             var serverTask = host.AcceptWireBusAsync();
-            var client = WireBus.Connect(IPAddress.Loopback, port);
+            var client = WireBusClient.Connect(IPAddress.Loopback, port);
             serverTask.Wait();
             var server = serverTask.Result;
             var messageTask = client.ReceiveAsync<TestMessage>();

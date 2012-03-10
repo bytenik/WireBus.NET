@@ -54,9 +54,9 @@
     <Compile Include="Envelope\DefaultMessageEnvelope.cs" />
     <Compile Include="Envelope\IEnvelope.cs" />
     <Compile Include="InvalidEnvelopeException.cs" />
-    <Compile Include="WireBus.cs" />
+    <Compile Include="WireBusClient.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="WireBusHost.cs" />
+    <Compile Include="WireBusListener.cs" />
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Service References\" />

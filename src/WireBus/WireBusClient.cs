@@ -40,26 +40,43 @@ namespace WireBus
         }
 
         /// <summary>
+        /// Receive a message from the peer, blocking until one is available.
+        /// </summary>
+        /// <typeparam name="T">the type of message</typeparam>
+        /// <returns>the message retrieved</returns>
+        public T Receive<T>()
+        {
+            return ReceiveWithEnvelope<T>().Item1;
+        }
+
+        /// <summary>
         /// Receive a message and its envelope from the peer, blocking until a message is available.
         /// </summary>
         /// <typeparam name="T">the type of message</typeparam>
         /// <returns>the message and envelope retrieved</returns>
         public Task<Tuple<T, IEnvelope>> ReceiveWithEnvelopeAsync<T>()
         {
-            return Task.Factory.StartNew(delegate()
-            {
-                var stream = _client.GetStream();
-                object envelope;
-                Serializer.NonGeneric.TryDeserializeWithLengthPrefix(_client.GetStream(), PrefixStyle.Base128, unused => _envelopeType, out envelope);
-                var env = envelope as IEnvelope;
-                if (envelope == null)
-                    throw new InvalidEnvelopeException("Invalid or null envelope.");
-                var type = Type.GetType(env.TypeName);
-                object message;
-                Serializer.NonGeneric.TryDeserializeWithLengthPrefix(stream, PrefixStyle.Base128, unused => type, out message);
-                var msg = (T) message;
-                return new Tuple<T, IEnvelope>(msg, env);
-            });
+            return Task.Factory.StartNew(() => ReceiveWithEnvelope<T>());
+        }
+
+        /// <summary>
+        /// Receive a message and its envelope from the peer, blocking until a message is available.
+        /// </summary>
+        /// <typeparam name="T">the type of message</typeparam>
+        /// <returns>the message and envelope retrieved</returns>
+        public Tuple<T, IEnvelope> ReceiveWithEnvelope<T>()
+        {
+            var stream = _client.GetStream();
+            object envelope;
+            Serializer.NonGeneric.TryDeserializeWithLengthPrefix(_client.GetStream(), PrefixStyle.Base128, unused => _envelopeType, out envelope);
+            var env = envelope as IEnvelope;
+            if (envelope == null)
+                throw new InvalidEnvelopeException("Invalid or null envelope.");
+            var type = Type.GetType(env.TypeName);
+            object message;
+            Serializer.NonGeneric.TryDeserializeWithLengthPrefix(stream, PrefixStyle.Base128, unused => type, out message);
+            var msg = (T)message;
+            return new Tuple<T, IEnvelope>(msg, env);
         }
 
         /// <summary>

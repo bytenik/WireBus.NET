@@ -12,31 +12,54 @@ namespace WireBus
     {
         private readonly TcpListener _listener;
 
+        /// <summary>
+        /// Create a new host using an existing listener.
+        /// </summary>
+        /// <param name="listener">a preexisting TcpListener</param>
         public WireBusHost(TcpListener listener)
         {
             _listener = listener;
         }
 
+        /// <summary>
+        /// Create a new host configured to listen on all IP addresses with the specified port
+        /// </summary>
+        /// <param name="port">the local port</param>
         public WireBusHost(int port)
         {
             _listener = new TcpListener(IPAddress.Any, port);
         }
 
+        /// <summary>
+        /// Creates a new host configured to listen on the specified IP and port
+        /// </summary>
+        /// <param name="address">local address</param>
+        /// <param name="port">local port</param>
         public WireBusHost(IPAddress address, int port)
         {
             _listener = new TcpListener(address, port);
         }
 
+        /// <summary>
+        /// Start listening for new connections.
+        /// </summary>
         public void Start()
         {
             _listener.Start();
         }
 
+        /// <summary>
+        /// Stop listening for connections.
+        /// </summary>
         public void Stop()
         {   
             _listener.Stop();
         }
 
+        /// <summary>
+        /// Accept a new WireBus client.
+        /// </summary>
+        /// <returns></returns>
         public Task<WireBus> AcceptWireBusAsync()
         {
             return Task<TcpClient>.Factory.FromAsync(_listener.BeginAcceptTcpClient, _listener.EndAcceptTcpClient, null)

@@ -20,7 +20,6 @@ namespace WireBus
 	public class WireBusClient : IDisposable
 	{
 		private readonly Socket _socket;
-		private readonly object _lock = new object();
 
 		private readonly Dictionary<uint, TaskCompletionSource<WireContext>> _replyReceivers = new Dictionary<uint, TaskCompletionSource<WireContext>>();
 		private readonly BlockingCollection<TaskCompletionSource<WireContext>> _receivers = new BlockingCollection<TaskCompletionSource<WireContext>>();
@@ -88,7 +87,7 @@ namespace WireBus
 
 		internal async Task InternalSendAsync(byte[] message, uint? id)
 		{
-			var buffer = new byte[sizeof(ushort) + 1 + message.Length];
+			var buffer = new byte[sizeof(ushort) + sizeof(uint) + message.Length];
 			BitConverter.GetBytes((ushort)message.Length).CopyTo(buffer, 0);
 			if (id == null)
 			{
@@ -101,16 +100,8 @@ namespace WireBus
 				message.CopyTo(buffer, sizeof (ushort) + sizeof (uint));
 			}
 
-			Monitor.Enter(_lock);
-			try
-			{
-				var segment = new ArraySegment<byte>(buffer);
-				await Task<int>.Factory.FromAsync(_socket.BeginSend, _socket.EndSend, new List<ArraySegment<byte>> { segment }, SocketFlags.None, null);
-			}
-			finally
-			{
-				Monitor.Exit(_lock);
-			}
+			var segment = new ArraySegment<byte>(buffer);
+			await Task<int>.Factory.FromAsync(_socket.BeginSend, _socket.EndSend, new List<ArraySegment<byte>> { segment }, SocketFlags.None, null);
 		}
 
 		/// <summary>
@@ -122,22 +113,17 @@ namespace WireBus
 			return InternalSendAsync(message, null);
 		}
 
-		private uint _maxId = 0;
-		private readonly object _idLock = new object();
+		private volatile int _maxId = 0;
 		private uint GetNextId()
 		{
-			lock(_idLock)
-			unchecked
+			// do not ever let the LSB (little-endian -- first byte) be 0 since that means no reply id
+			int id;
+			do
 			{
-				// do not ever let the LSB (little-endian -- first byte) be 0 since that means no reply id
-				_maxId++;
-				if ((_maxId & 0xFFu) == 0)
-					_maxId++;
-				if ((_maxId & 0xFFu) == 0) // check again due to possible wraparound from 0-ending number to 0
-					_maxId++;
-
-				return _maxId;
-			}
+				id = Interlocked.Increment(ref _maxId);
+			} while ((id & 0xFFu) == 0);
+			
+			return (uint) id;
 		}
 
 		/// <summary>

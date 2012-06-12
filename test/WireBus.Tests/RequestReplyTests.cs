@@ -14,33 +14,25 @@ namespace WireBus.Tests
     public class RequestReplyTests
     {
         [TestMethod]
-        public void ConnectAndDisconnect()
+        public void SimpleRequestReply()
         {
             const int port = 12345;
+        	const int bytes = 5;
+
             var host = new WireBusListener(IPAddress.Loopback, port);
             host.Start();
             var serverTask = host.AcceptWireBusAsync();
             var client = WireBusClient.Connect(IPAddress.Loopback, port);
             var server = serverTask.Result;
+
             var messageTask = client.ReceiveAsync();
-            server.Disconnect();
-            host.Stop();
-            try
-            {
-                try
-                {
-                    messageTask.Wait();
-                }
-                catch(AggregateException ae)
-                {
-                    throw ae.Flatten().InnerException;
-                }
-            }
-            catch (TaskCanceledException)
-            {
-                return;
-            }
-            Assert.Fail();
+        	var replyTask = server.SendRequestAsync(new byte[bytes]);
+
+        	Assert.AreEqual(messageTask.Result.Message.Length, bytes, "Received byte count does not match sent");
+
+        	messageTask.Result.Reply(new byte[bytes]);
+
+			Assert.AreEqual(replyTask.Result.Message.Length, bytes, "Received byte count of reply does not match sent");
         }
     }
 }

@@ -5,6 +5,7 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace WireBus.Tests
@@ -39,9 +40,8 @@ namespace WireBus.Tests
             host.Start();
             var serverTask = host.AcceptWireBusAsync();
             var client = WireBusClient.Connect(IPAddress.Loopback, port);
-            serverTask.Wait();
             var server = serverTask.Result;
-            var messageTask = client.ReceiveAsync<TestMessage>();
+            var messageTask = client.ReceiveAsync();
             server.Disconnect();
             host.Stop();
             try
@@ -55,7 +55,7 @@ namespace WireBus.Tests
                     throw ae.Flatten().InnerException;
                 }
             }
-            catch (InvalidEnvelopeException)
+            catch (TaskCanceledException)
             {
                 return;
             }

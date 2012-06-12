@@ -6,14 +6,14 @@ using System.Text;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
 
 namespace WireBus.Tests
 {
-    [TestClass]
+    [TestFixture]
     public class RequestReplyTests
     {
-        [TestMethod]
+        [Test]
         public void SimpleRequestReply()
         {
             const int port = 12345;

@@ -6,14 +6,14 @@ using System.Text;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
 
 namespace WireBus.Tests
 {
-    [TestClass]
+    [TestFixture]
     public class BasicTests
     {
-        [TestMethod]
+        [Test]
         public void Connect()
         {
             const int port = 12345;
@@ -32,7 +32,7 @@ namespace WireBus.Tests
             public int TestMember;
         }
 
-        [TestMethod]
+        [Test]
         public void ConnectAndDisconnect()
         {
             const int port = 12345;
@@ -62,7 +62,7 @@ namespace WireBus.Tests
             Assert.Fail();
         }
 
-        [TestMethod]
+        [Test]
         public void VerifyData()
         {
             

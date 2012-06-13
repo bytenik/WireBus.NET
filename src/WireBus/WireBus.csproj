@@ -47,6 +47,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="MyTaskEx.cs" />
     <Compile Include="WireContext.cs" />
     <Compile Include="WireBusClient.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

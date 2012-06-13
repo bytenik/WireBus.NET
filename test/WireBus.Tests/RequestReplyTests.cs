@@ -30,7 +30,7 @@ namespace WireBus.Tests
 
         	Assert.AreEqual(messageTask.Result.Message.Length, bytes, "Received byte count does not match sent");
 
-        	messageTask.Result.Reply(new byte[bytes]);
+        	messageTask.Result.ReplyAsync(new byte[bytes]);
 
 			Assert.AreEqual(replyTask.Result.Message.Length, bytes, "Received byte count of reply does not match sent");
         }

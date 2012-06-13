@@ -111,6 +111,16 @@ namespace WireBus
 			return InternalSendAsync(message, null);
 		}
 
+		/// <summary>
+		/// Send a message to the peer.
+		/// </summary>
+		/// <param name="message">the message to send</param>
+		public void Send(byte[] message)
+		{
+			var task = SendAsync(message);
+			task.WaitOne();
+		}
+
 #pragma warning disable 420
 		private volatile int _maxId = 0;
 		private uint GetNextId()
@@ -127,7 +137,7 @@ namespace WireBus
 #pragma warning restore 420
 
 		/// <summary>
-		/// Send a message to the peer.
+		/// Send a message to the peer and wait for a reply
 		/// </summary>
 		/// <param name="message">the message to send</param>
 		public async Task<WireContext> SendRequestAsync(byte[] message)
@@ -142,6 +152,17 @@ namespace WireBus
 		}
 
 		/// <summary>
+		/// Send a message to the peer and wait for a reply
+		/// </summary>
+		/// <param name="message">the message to send</param>
+		public WireContext SendRequest(byte[] message)
+		{
+			var task = SendRequestAsync(message);
+			task.WaitOne();
+			return task.Result;
+		}
+
+		/// <summary>
 		/// Receive a message from the network
 		/// </summary>
 		/// <returns>a wire context describing the message received</returns>
@@ -150,6 +171,17 @@ namespace WireBus
 			var source = new TaskCompletionSource<WireContext>();
 			_receivers.Add(source);
 			return source.Task;
+		}
+
+		/// <summary>
+		/// Receive a message from the network
+		/// </summary>
+		/// <returns>a wire context describing the message received</returns>
+		public WireContext Receive()
+		{
+			var task = ReceiveAsync();
+			task.WaitOne();
+			return task.Result;
 		}
 
 		/// <summary>

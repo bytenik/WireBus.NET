@@ -37,12 +37,26 @@ namespace WireBus
 		/// </summary>
 		/// <param name="message">the reply message data</param>
 		/// <exception cref="InvalidOperationException">non-replyable message</exception>
-		public Task Reply(byte[] message)
+		public Task ReplyAsync(byte[] message)
 		{
 			if(_id == null)
 				throw new InvalidOperationException("Sender did not provide reply information");
 
 			return _client.InternalSendAsync(message, _id);
+		}
+
+		/// <summary>
+		/// Reply to the message
+		/// </summary>
+		/// <param name="message">the reply message data</param>
+		/// <exception cref="InvalidOperationException">non-replyable message</exception>
+		public void Reply(byte[] message)
+		{
+			if (_id == null)
+				throw new InvalidOperationException("Sender did not provide reply information");
+
+			var task = _client.InternalSendAsync(message, _id);
+			task.WaitOne();
 		}
 	}
 }

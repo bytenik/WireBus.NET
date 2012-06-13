@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 11
+# Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WireBus", "src\WireBus\WireBus.csproj", "{9EE42870-FCC3-46B7-9F13-71139F2FCD36}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{E55C3DCB-3F8D-4B70-826E-5380DAEE4500}"
@@ -14,7 +14,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{D5F2D10F-C8FC-44B1-ABBB-4F37C85BF9F5}"
 	ProjectSection(SolutionItems) = preProject
 		Local.testsettings = Local.testsettings
-		README = README
+		README.md = README.md
 		TraceAndTestImpact.testsettings = TraceAndTestImpact.testsettings
 		WireBus.vsmdi = WireBus.vsmdi
 	EndProjectSection

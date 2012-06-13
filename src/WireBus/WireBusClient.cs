@@ -41,8 +41,9 @@ namespace WireBus
 			try
 			{
 				var lengthBuf = new byte[sizeof(ushort)];
-				int bc = await SocketReceiveAsync(_socket, lengthBuf, 0, sizeof (ushort));
-				bc = bc;
+				await SocketReceiveAsync(_socket, lengthBuf, 0, sizeof (ushort));
+				if (!BitConverter.IsLittleEndian)
+					Array.Reverse(lengthBuf);
 				ushort length = BitConverter.ToUInt16(lengthBuf, 0);
 
 				var idBuf = new byte[sizeof(uint)];
@@ -53,6 +54,8 @@ namespace WireBus
 				else
 				{
 					await SocketReceiveAsync(_socket, idBuf, 1, sizeof(uint)-1);
+					if (!BitConverter.IsLittleEndian)
+						Array.Reverse(lengthBuf);
 					id = BitConverter.ToUInt32(idBuf, 0);
 				}
 
@@ -90,7 +93,10 @@ namespace WireBus
 				throw new ArgumentOutOfRangeException("message", "Message cannot be more than " + uint.MaxValue + " bytes");
 
 			var buffer = new byte[sizeof(ushort) + sizeof(uint) + message.Length];
-			BitConverter.GetBytes((ushort) message.Length).CopyTo(buffer, 0);
+			var lengthBytes = BitConverter.GetBytes((ushort) message.Length);
+			if (!BitConverter.IsLittleEndian)
+				Array.Reverse(lengthBytes);
+			lengthBytes.CopyTo(buffer, 0);
 
 			int len;
 			if (id == null)
@@ -101,7 +107,10 @@ namespace WireBus
 			}
 			else
 			{
-				BitConverter.GetBytes(id.Value).CopyTo(buffer, sizeof (ushort));
+				var idBytes = BitConverter.GetBytes(id.Value);
+				if(!BitConverter.IsLittleEndian)
+					Array.Reverse(idBytes);
+				idBytes.CopyTo(buffer, sizeof (ushort));
 				message.CopyTo(buffer, sizeof (ushort) + sizeof (uint));
 				len = sizeof (ushort) + sizeof (uint) + message.Length;
 			}

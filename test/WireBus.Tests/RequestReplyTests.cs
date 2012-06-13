@@ -34,5 +34,31 @@ namespace WireBus.Tests
 
 			Assert.AreEqual(replyTask.Result.Data.Length, bytes, "Received byte count of reply does not match sent");
         }
+
+		[Test]
+		public void LotsOfRepliesTest()
+		{
+			const int port = 12345;
+			var r = new Random();
+			var data = new byte[ushort.MaxValue];
+			r.NextBytes(data);
+
+			var host = new WireBusListener(IPAddress.Loopback, port);
+			host.Start();
+			var serverTask = host.AcceptWireBusAsync();
+			var client = WireBusClient.Connect(IPAddress.Loopback, port);
+			var server = serverTask.Result;
+
+			for (int i = 0; i < 500; i++)
+			{
+				var clientRcv = client.ReceiveAsync();
+				var serverRcv = server.SendRequestAsync(data);
+
+				Assert.IsTrue(clientRcv.Result.Data.SequenceEqual(data), "Server sent data does not match client received");
+				clientRcv.Result.ReplyAsync(data);
+
+				Assert.IsTrue(serverRcv.Result.Data.SequenceEqual(data), "Client sent data does not match server received");
+			}
+		}
     }
 }

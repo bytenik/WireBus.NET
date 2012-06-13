@@ -41,7 +41,8 @@ namespace WireBus
 			try
 			{
 				var lengthBuf = new byte[sizeof(ushort)];
-				await SocketReceiveAsync(_socket, lengthBuf, 0, sizeof (ushort));
+				int bc = await SocketReceiveAsync(_socket, lengthBuf, 0, sizeof (ushort));
+				bc = bc;
 				ushort length = BitConverter.ToUInt16(lengthBuf, 0);
 
 				var idBuf = new byte[sizeof(uint)];
@@ -85,20 +86,27 @@ namespace WireBus
 
 		internal async Task InternalSendAsync(byte[] message, uint? id)
 		{
+			if(message.LongLength > uint.MaxValue)
+				throw new ArgumentOutOfRangeException("message", "Message cannot be more than " + uint.MaxValue + " bytes");
+
 			var buffer = new byte[sizeof(ushort) + sizeof(uint) + message.Length];
-			BitConverter.GetBytes((ushort)message.Length).CopyTo(buffer, 0);
+			BitConverter.GetBytes((ushort) message.Length).CopyTo(buffer, 0);
+
+			int len;
 			if (id == null)
 			{
 				buffer[sizeof(ushort)] = 0;
 				message.CopyTo(buffer, sizeof(ushort) + 1);
+				len = sizeof (ushort) + 1 + message.Length;
 			}
 			else
 			{
 				BitConverter.GetBytes(id.Value).CopyTo(buffer, sizeof (ushort));
 				message.CopyTo(buffer, sizeof (ushort) + sizeof (uint));
+				len = sizeof (ushort) + sizeof (uint) + message.Length;
 			}
 
-			var segment = new ArraySegment<byte>(buffer);
+			var segment = new ArraySegment<byte>(buffer, 0, len);
 			await Task<int>.Factory.FromAsync(_socket.BeginSend, _socket.EndSend, new List<ArraySegment<byte>> { segment }, SocketFlags.None, null);
 		}
 

@@ -77,5 +77,64 @@ namespace WireBus.Tests
 
 			host.Stop();
         }
+
+		[Test]
+		public void TooMuchData()
+		{
+			const int port = 12345;
+			var r = new Random();
+			var data = new byte[ushort.MaxValue+1];
+			r.NextBytes(data);
+
+			var host = new WireBusListener(IPAddress.Loopback, port);
+			host.Start();
+			var serverTask = host.AcceptWireBusAsync();
+			var client = WireBusClient.Connect(IPAddress.Loopback, port);
+			var server = serverTask.Result;
+
+			var clientRcv = client.ReceiveAsync();
+			try
+			{
+				server.Send(data);
+			}
+			catch(ArgumentOutOfRangeException)
+			{
+				Assert.Pass();
+			}
+
+			Assert.Fail("Did not get overflow when sending too much data");
+			host.Stop();
+		}
+
+		[Test]
+		public void VerifyLotsOfData()
+		{
+			const int port = 12345;
+			var r = new Random();
+			var data = new byte[ushort.MaxValue];
+			r.NextBytes(data);
+
+			var host = new WireBusListener(IPAddress.Loopback, port);
+			host.Start();
+			var serverTask = host.AcceptWireBusAsync();
+			var client = WireBusClient.Connect(IPAddress.Loopback, port);
+			var server = serverTask.Result;
+
+			for (int i = 0; i < 100; i++)
+			{
+				var clientRcv = client.ReceiveAsync();
+				server.Send(data);
+				Assert.IsTrue(clientRcv.Result.Data.SequenceEqual(data), "Server sent data does not match client received");
+			}
+
+			for (int i = 0; i < 100; i++)
+			{
+				var serverRcv = server.ReceiveAsync();
+				client.Send(data);
+				Assert.IsTrue(serverRcv.Result.Data.SequenceEqual(data), "Client sent data does not match server received");
+			}
+
+			host.Stop();
+		}
     }
 }

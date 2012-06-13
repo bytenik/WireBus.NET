@@ -81,6 +81,9 @@ namespace WireBus
 			return bus;
 		}
 
+		/// <summary>
+		/// Dispose of the listener
+		/// </summary>
 		public void Dispose()
 		{
 			try

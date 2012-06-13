@@ -6,10 +6,17 @@ using System.Threading.Tasks;
 
 namespace WireBus
 {
+	/// <summary>
+	/// A context describing a received message and the ability to reply to it.
+	/// </summary>
 	public class WireContext
 	{
 		private readonly WireBusClient _client;
 		private readonly uint? _id;
+
+		/// <summary>
+		/// The message byte data
+		/// </summary>
 		public byte[] Message { get; private set; }
 
 		internal WireContext(WireBusClient client, byte[] message, uint? id)
@@ -25,6 +32,11 @@ namespace WireBus
 			
 		}
 
+		/// <summary>
+		/// Reply to the message
+		/// </summary>
+		/// <param name="message">the reply message data</param>
+		/// <exception cref="InvalidOperationException">non-replyable message</exception>
 		public Task Reply(byte[] message)
 		{
 			if(_id == null)

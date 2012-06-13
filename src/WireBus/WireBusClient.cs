@@ -6,6 +6,7 @@ using System.Linq.Expressions;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -110,6 +111,7 @@ namespace WireBus
 			return InternalSendAsync(message, null);
 		}
 
+#pragma warning disable 420
 		private volatile int _maxId = 0;
 		private uint GetNextId()
 		{
@@ -122,6 +124,7 @@ namespace WireBus
 			
 			return (uint) id;
 		}
+#pragma warning restore 420
 
 		/// <summary>
 		/// Send a message to the peer.
@@ -138,6 +141,10 @@ namespace WireBus
 			return await source.Task;
 		}
 
+		/// <summary>
+		/// Receive a message from the network
+		/// </summary>
+		/// <returns>a wire context describing the message received</returns>
 		public Task<WireContext> ReceiveAsync()
 		{
 			var source = new TaskCompletionSource<WireContext>();
@@ -146,7 +153,7 @@ namespace WireBus
 		}
 
 		/// <summary>
-		/// Disconnect from the peer.
+		/// Disconnect from the peer
 		/// </summary>
 		public void Disconnect()
 		{
@@ -167,11 +174,11 @@ namespace WireBus
 		}
 
 		/// <summary>
-		/// Connect to a peer, returning a new WireBus.
+		/// Connect to a peer, returning a new bus.
 		/// </summary>
 		/// <param name="host">the target host</param>
 		/// <param name="port">the target port</param>
-		/// <returns>the WireBus wrapping the new connection</returns>
+		/// <returns>the bus wrapping the new connection</returns>
 		public static Task<WireBusClient> ConnectAsync(string host, int port)
 		{
 			var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -180,11 +187,11 @@ namespace WireBus
 		}
 
 		/// <summary>
-		/// Connect to a peer, returning a new WireBus.
+		/// Connect to a peer, returning a new bus.
 		/// </summary>
 		/// <param name="host">the target host</param>
 		/// <param name="port">the target port</param>
-		/// <returns>the WireBus wrapping the new connection</returns>
+		/// <returns>the bus wrapping the new connection</returns>
 		public static Task<WireBusClient> ConnectAsync(IPAddress host, int port)
 		{
 			var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -193,11 +200,11 @@ namespace WireBus
 		}
 
 		/// <summary>
-		/// Connect to a peer, returning a new WireBus.
+		/// Connect to a peer, returning a new bus.
 		/// </summary>
 		/// <param name="host">the target host</param>
 		/// <param name="port">the target port</param>
-		/// <returns>the WireBus wrapping the new connection</returns>
+		/// <returns>the bus wrapping the new connection</returns>
 		public static WireBusClient Connect(string host, int port)
 		{
 			var bus = ConnectAsync(host, port);
@@ -205,17 +212,20 @@ namespace WireBus
 		}
 
 		/// <summary>
-		/// Connect to a peer, returning a new WireBus.
+		/// Connect to a peer, returning a new bus.
 		/// </summary>
 		/// <param name="host">the target host</param>
 		/// <param name="port">the target port</param>
-		/// <returns>the WireBus wrapping the new connection</returns>
+		/// <returns>the bus wrapping the new connection</returns>
 		public static WireBusClient Connect(IPAddress host, int port)
 		{
 			var bus = ConnectAsync(host, port);
 			return bus.Result;
 		}
 
+		/// <summary>
+		/// Dispose of the client
+		/// </summary>
 		public void Dispose()
 		{
 			Disconnect();

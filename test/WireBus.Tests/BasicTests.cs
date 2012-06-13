@@ -16,7 +16,7 @@ namespace WireBus.Tests
         [Test]
         public void Connect()
         {
-            const int port = 12345;
+            const int port = 5555;
             var host = new WireBusListener(IPAddress.Loopback, port);
             host.Start();
             var serverTask = host.AcceptWireBusAsync();
@@ -28,7 +28,7 @@ namespace WireBus.Tests
         [Test]
         public void ConnectAndDisconnect()
         {
-            const int port = 12345;
+            const int port = 4444;
             var host = new WireBusListener(IPAddress.Loopback, port);
             host.Start();
             var serverTask = host.AcceptWireBusAsync();
@@ -58,7 +58,7 @@ namespace WireBus.Tests
         [Test]
         public void VerifyData()
         {
-			const int port = 12345;
+			const int port = 2222;
         	byte[] data = new byte[] {51, 18, 83, 133, 0, 4, 86, 99, 255};
 
 			var host = new WireBusListener(IPAddress.Loopback, port);
@@ -81,7 +81,7 @@ namespace WireBus.Tests
 		[Test]
 		public void TooMuchData()
 		{
-			const int port = 12345;
+			const int port = 3333;
 			var r = new Random();
 			var data = new byte[ushort.MaxValue+1];
 			r.NextBytes(data);
@@ -109,7 +109,7 @@ namespace WireBus.Tests
 		[Test]
 		public void VerifyLotsOfData()
 		{
-			const int port = 12345;
+			const int port = 6666;
 			var r = new Random();
 			var data = new byte[ushort.MaxValue];
 			r.NextBytes(data);

@@ -89,7 +89,7 @@ namespace WireBus
 
 		internal async Task InternalSendAsync(byte[] message, uint? id)
 		{
-			if(message.LongLength > uint.MaxValue)
+			if(message.LongLength > ushort.MaxValue)
 				throw new ArgumentOutOfRangeException("message", "Message cannot be more than " + uint.MaxValue + " bytes");
 
 			var buffer = new byte[sizeof(ushort) + sizeof(uint) + message.Length];

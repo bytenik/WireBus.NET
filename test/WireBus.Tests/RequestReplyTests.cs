@@ -16,7 +16,7 @@ namespace WireBus.Tests
         [Test]
         public void SimpleRequestReply()
         {
-            const int port = 12345;
+            const int port = 7777;
         	const int bytes = 5;
 
             var host = new WireBusListener(IPAddress.Loopback, port);
@@ -38,7 +38,7 @@ namespace WireBus.Tests
 		[Test]
 		public void LotsOfRepliesTest()
 		{
-			const int port = 12345;
+			const int port = 8888;
 			var r = new Random();
 			var data = new byte[ushort.MaxValue];
 			r.NextBytes(data);

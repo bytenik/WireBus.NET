@@ -28,11 +28,11 @@ namespace WireBus.Tests
             var messageTask = client.ReceiveAsync();
         	var replyTask = server.SendRequestAsync(new byte[bytes]);
 
-        	Assert.AreEqual(messageTask.Result.Message.Length, bytes, "Received byte count does not match sent");
+        	Assert.AreEqual(messageTask.Result.Data.Length, bytes, "Received byte count does not match sent");
 
         	messageTask.Result.ReplyAsync(new byte[bytes]);
 
-			Assert.AreEqual(replyTask.Result.Message.Length, bytes, "Received byte count of reply does not match sent");
+			Assert.AreEqual(replyTask.Result.Data.Length, bytes, "Received byte count of reply does not match sent");
         }
     }
 }

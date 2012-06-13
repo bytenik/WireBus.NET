@@ -25,13 +25,6 @@ namespace WireBus.Tests
             host.Stop();
         }
 
-        [Serializable, DataContract]
-        public class TestMessage
-        {
-            [DataMember(Order=1)]
-            public int TestMember;
-        }
-
         [Test]
         public void ConnectAndDisconnect()
         {
@@ -65,7 +58,24 @@ namespace WireBus.Tests
         [Test]
         public void VerifyData()
         {
-            
+			const int port = 12345;
+        	byte[] data = new byte[] {51, 18, 83, 133, 0, 4, 86, 99, 255};
+
+			var host = new WireBusListener(IPAddress.Loopback, port);
+			host.Start();
+			var serverTask = host.AcceptWireBusAsync();
+			var client = WireBusClient.Connect(IPAddress.Loopback, port);
+        	var server = serverTask.Result;
+
+        	var clientRcv = client.ReceiveAsync();
+        	server.Send(data);
+        	Assert.IsTrue(clientRcv.Result.Data.SequenceEqual(data), "Server sent data does not match client received");
+
+        	var serverRcv = server.ReceiveAsync();
+			client.Send(data);
+			Assert.IsTrue(serverRcv.Result.Data.SequenceEqual(data), "Server sent data does not match client received");
+
+			host.Stop();
         }
     }
 }

@@ -17,13 +17,13 @@ namespace WireBus
 		/// <summary>
 		/// The message byte data
 		/// </summary>
-		public byte[] Message { get; private set; }
+		public byte[] Data { get; private set; }
 
 		internal WireContext(WireBusClient client, byte[] message, uint? id)
 		{
 			_client = client;
 			_id = id;
-			Message = message;
+			Data = message;
 		}
 
 		internal WireContext(WireBusClient client, byte[] message)

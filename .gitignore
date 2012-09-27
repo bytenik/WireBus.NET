@@ -40,3 +40,4 @@ packages/
 UpgradeLog.*
 _UpgradeReport_Files/
 Thumbs.db
+*.nupkg

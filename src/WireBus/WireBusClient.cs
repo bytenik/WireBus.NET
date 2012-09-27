@@ -27,6 +27,11 @@ namespace WireBus
         private readonly ushort? _clientFixedLength;
 	    private readonly ushort? _serverFixedLength;
 
+        /// <summary>
+        /// The remote endpoint of the client.
+        /// </summary>
+        public EndPoint RemoteEndPoint { get { return _socket.RemoteEndPoint; }}
+
 		internal WireBusClient(Socket socket, bool clientMayReply = true, ushort? clientFixedLength = null, bool serverMayReply = true, ushort? serverFixedLength = null)
 		{
 			_socket = socket;

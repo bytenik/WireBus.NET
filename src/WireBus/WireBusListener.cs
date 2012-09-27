@@ -81,6 +81,22 @@ namespace WireBus
 			return bus;
 		}
 
+        /// <summary>
+        /// Accept a new WireBus client.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<WireBusClient> AcceptWireBusAsync(bool clientMayReply = true,
+            ushort? clientFixedLength = null,
+            bool serverMayReply = true,
+            ushort? serverFixedLength = null)
+        {
+            var client = await _listener.AcceptSocketAsync();
+            client.ReceiveTimeout = 60000;
+            client.Blocking = true;
+            var bus = new WireBusClient(client, clientMayReply, clientFixedLength, serverMayReply, serverFixedLength);
+            return bus;
+        }
+
 		/// <summary>
 		/// Dispose of the listener
 		/// </summary>

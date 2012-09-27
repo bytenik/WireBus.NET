@@ -22,11 +22,20 @@ namespace WireBus
 		private readonly Dictionary<uint, TaskCompletionSource<WireContext>> _replyReceivers = new Dictionary<uint, TaskCompletionSource<WireContext>>();
 		private readonly BlockingCollection<TaskCompletionSource<WireContext>> _receivers = new BlockingCollection<TaskCompletionSource<WireContext>>();
 
-		internal WireBusClient(Socket socket)
+        private readonly bool _clientMayReply;
+        private readonly bool _serverMayReply;
+        private readonly ushort? _clientFixedLength;
+	    private readonly ushort? _serverFixedLength;
+
+		internal WireBusClient(Socket socket, bool clientMayReply = true, ushort? clientFixedLength = null, bool serverMayReply = true, ushort? serverFixedLength = null)
 		{
 			_socket = socket;
+            _clientMayReply = clientMayReply;
+		    _clientFixedLength = clientFixedLength;
+		    _serverMayReply = serverMayReply;
+		    _serverFixedLength = serverFixedLength;
 
-			ReceiveMessages();
+		    ReceiveMessages();
 		}
 
 		private static async Task<int> SocketReceiveAsync(Socket s, byte[] buffer, int start, int length)
@@ -38,40 +47,68 @@ namespace WireBus
 
 		internal async void ReceiveMessages()
 		{
-			try
+			while(true) try
 			{
-				var lengthBuf = new byte[sizeof(ushort)];
-				await SocketReceiveAsync(_socket, lengthBuf, 0, sizeof (ushort));
-				if (!BitConverter.IsLittleEndian)
-					Array.Reverse(lengthBuf);
-				ushort length = BitConverter.ToUInt16(lengthBuf, 0);
+                var tinyBuf = new byte[sizeof(ushort)];
+			 
+                ushort length;
+                if (_serverFixedLength == null)
+                {
+                    // read the message length (2 bytes)
+                    await SocketReceiveAsync(_socket, tinyBuf, 0, sizeof (ushort));
+                    if (!BitConverter.IsLittleEndian)
+                        Array.Reverse(tinyBuf);
+                    length = BitConverter.ToUInt16(tinyBuf, 0);
+                }
+                else
+                    length = _serverFixedLength.Value;
 
-				var idBuf = new byte[sizeof(uint)];
-				uint? id;
-				await SocketReceiveAsync(_socket, idBuf, 0, 1);
-				if (idBuf[0] == 0)
-					id = null;
-				else
-				{
-					await SocketReceiveAsync(_socket, idBuf, 1, sizeof(uint)-1);
-					if (!BitConverter.IsLittleEndian)
-						Array.Reverse(lengthBuf);
-					id = BitConverter.ToUInt32(idBuf, 0);
-				}
+                uint? id;
+                if (_serverMayReply)
+                {
+                    // read the id (1 byte if no id, 4 bytes if there is)
+                    var idBuf = new byte[sizeof(uint)];
+                    await SocketReceiveAsync(_socket, idBuf, 0, 1);
+                    if (idBuf[0] == 0)
+                        id = null;
+                    else
+                    {
+                        await SocketReceiveAsync(_socket, idBuf, 1, sizeof(uint) - 1);
+                        if (!BitConverter.IsLittleEndian)
+                            Array.Reverse(tinyBuf);
+                        id = BitConverter.ToUInt32(idBuf, 0);
+                    }
+                }
+                else
+                    id = null;
 
-				var buf = new byte[length];
+			    var buf = new byte[length];
 				for (int bytes = 0; bytes < length; )
 					bytes += await SocketReceiveAsync(_socket, buf, bytes, length-bytes);
 
 				if (id == null)
-					_receivers.Take().SetResult(new WireContext(this, buf));
+				{
+				    TaskCompletionSource<WireContext> tcs;
+				    do
+				    {
+				        tcs = _receivers.Take();
+				    } while (tcs.Task.IsCanceled);
+				    tcs.SetResult(new WireContext(this, buf));
+				}
 				else if (_replyReceivers.ContainsKey(id.Value))
 				{
 					_replyReceivers[id.Value].SetResult(new WireContext(this, buf));
 					_replyReceivers.Remove(id.Value);
 				}
 				else
-					_receivers.Take().SetResult(new WireContext(this, buf, id));				
+				{
+                    TaskCompletionSource<WireContext> tcs;
+                    do
+                    {
+                        tcs = _receivers.Take();
+                    } while (tcs.Task.IsCanceled);
+				    tcs.SetResult(new WireContext(this, buf, id));
+				}				
 			}
 			catch (SocketException)
 			{
@@ -83,39 +120,47 @@ namespace WireBus
 				Disconnect();
 				return;
 			}
-
-			ReceiveMessages();
 		}
 
 		internal async Task InternalSendAsync(byte[] message, uint? id)
 		{
+            if(_clientFixedLength != null && message.Length != _clientFixedLength)
+                throw new ArgumentOutOfRangeException("message", "Message must be exactly " + _clientFixedLength + " bytes; consider turning off fixed-length messages?");
 			if(message.LongLength > ushort.MaxValue)
 				throw new ArgumentOutOfRangeException("message", "Message cannot be more than " + uint.MaxValue + " bytes");
 
-			var buffer = new byte[sizeof(ushort) + sizeof(uint) + message.Length];
-			var lengthBytes = BitConverter.GetBytes((ushort) message.Length);
-			if (!BitConverter.IsLittleEndian)
-				Array.Reverse(lengthBytes);
-			lengthBytes.CopyTo(buffer, 0);
+		    int pos = 0;
+            var buffer = new byte[sizeof(ushort) + sizeof(uint) + message.Length];
 
-			int len;
-			if (id == null)
-			{
-				buffer[sizeof(ushort)] = 0;
-				message.CopyTo(buffer, sizeof(ushort) + 1);
-				len = sizeof (ushort) + 1 + message.Length;
-			}
-			else
-			{
-				var idBytes = BitConverter.GetBytes(id.Value);
-				if(!BitConverter.IsLittleEndian)
-					Array.Reverse(idBytes);
-				idBytes.CopyTo(buffer, sizeof (ushort));
-				message.CopyTo(buffer, sizeof (ushort) + sizeof (uint));
-				len = sizeof (ushort) + sizeof (uint) + message.Length;
-			}
+            if (_clientFixedLength == null)
+            {
+                var lengthBytes = BitConverter.GetBytes((ushort) message.Length);
+                if (!BitConverter.IsLittleEndian)
+                    Array.Reverse(lengthBytes);
+                lengthBytes.CopyTo(buffer, pos);
+                pos += lengthBytes.Length;
+            }
 
-			var segment = new ArraySegment<byte>(buffer, 0, len);
+            if (_clientMayReply)
+            {
+                if (id == null)
+                {
+                    buffer[pos++] = 0;
+                }
+                else
+                {
+                    var idBytes = BitConverter.GetBytes(id.Value);
+                    if (!BitConverter.IsLittleEndian)
+                        Array.Reverse(idBytes);
+                    idBytes.CopyTo(buffer, pos);
+                    pos += idBytes.Length;
+                }
+            }
+
+		    message.CopyTo(buffer, pos);
+            pos += message.Length;
+
+			var segment = new ArraySegment<byte>(buffer, 0, pos);
 			await Task<int>.Factory.FromAsync(_socket.BeginSend, _socket.EndSend, new List<ArraySegment<byte>> { segment }, SocketFlags.None, null);
 		}
 
@@ -190,6 +235,56 @@ namespace WireBus
 			return source.Task;
 		}
 
+        /// <summary>
+        /// Receive a message from the network
+        /// </summary>
+        /// <returns>a wire context describing the message received</returns>
+        public Task<WireContext> ReceiveAsync(TimeSpan timeout)
+        {
+            var cts = new CancellationTokenSource();
+            cts.CancelAfter(timeout);
+
+            return ReceiveAsync(cts.Token);
+        }
+
+        /// <summary>
+        /// Receive a message from the network
+        /// </summary>
+        /// <returns>a wire context describing the message received</returns>
+        public Task<WireContext> ReceiveAsync(int timeoutMilliseconds)
+        {
+            var cts = new CancellationTokenSource();
+            cts.CancelAfter(timeoutMilliseconds);
+
+            return ReceiveAsync(cts.Token);
+        }
+
+        /// <summary>
+        /// Receive a message from the network
+        /// </summary>
+        /// <returns>a wire context describing the message received</returns>
+        public Task<WireContext> ReceiveAsync(TimeSpan timeout, CancellationToken token)
+        {
+            var cts = new CancellationTokenSource();
+            cts.CancelAfter(timeout);
+
+            return ReceiveAsync(CancellationTokenSource.CreateLinkedTokenSource(cts.Token, token).Token);
+        }
+
+        /// <summary>
+        /// Receive a message from the network
+        /// </summary>
+        /// <returns>a wire context describing the message received</returns>
+        public Task<WireContext> ReceiveAsync(CancellationToken token)
+        {
+            var source = new TaskCompletionSource<WireContext>();
+            _receivers.Add(source);
+
+            token.Register(() => source.TrySetCanceled());
+
+            return source.Task;
+        }
+
 		/// <summary>
 		/// Receive a message from the network
 		/// </summary>
@@ -228,12 +323,33 @@ namespace WireBus
 		/// <param name="host">the target host</param>
 		/// <param name="port">the target port</param>
 		/// <returns>the bus wrapping the new connection</returns>
-		public static Task<WireBusClient> ConnectAsync(string host, int port)
+        public static Task<WireBusClient> ConnectAsync(string host, int port)
 		{
 			var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 			return Task.Factory.FromAsync(socket.BeginConnect, socket.EndConnect, host, port, null)
 				.ContinueWith(task => new WireBusClient(socket));
 		}
+
+	    /// <summary>
+	    /// Connect to a peer, returning a new bus.
+	    /// </summary>
+	    /// <param name="host">the target host</param>
+	    /// <param name="port">the target port</param>
+	    /// <param name="clientMayReply">whether or not the client can reply</param>
+        /// <param name="clientFixedLength">the client's fixed length, or null to use dynamic length</param>
+	    /// <param name="serverMayReply">whether or not the server can reply</param>
+	    /// <param name="serverFixedLength">the server's fixed length, or null to use dynamic length</param>
+	    /// <returns>the bus wrapping the new connection</returns>
+	    public static Task<WireBusClient> ConnectAsync(string host, int port,
+            bool clientMayReply = true,
+            ushort? clientFixedLength = null,
+            bool serverMayReply = true,
+            ushort? serverFixedLength = null)
+        {
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            return Task.Factory.FromAsync(socket.BeginConnect, socket.EndConnect, host, port, null)
+                .ContinueWith(task => new WireBusClient(socket, clientMayReply, clientFixedLength, serverMayReply, serverFixedLength));
+        }
 
 		/// <summary>
 		/// Connect to a peer, returning a new bus.

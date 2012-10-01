@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace WireBus
 {
-	static class MyTaskEx
+	static class TPLExtensions
 	{
 		public static void WaitOne(this Task task)
 		{
@@ -93,5 +93,12 @@ namespace WireBus
 				throw;
 			}
 		}
+
+        public static Task ToTask(this CancellationToken token)
+        {
+            var tcs = new TaskCompletionSource<object>();
+            token.Register(tcs.SetCanceled);
+            return tcs.Task;
+        }
 	}
 }

@@ -91,29 +91,20 @@ namespace WireBus
 				for (int bytes = 0; bytes < length; )
 					bytes += await SocketReceiveAsync(_socket, buf, bytes, length-bytes);
 
-				if (id == null)
+				if (id == null || !_replyReceivers.ContainsKey(id.Value))
 				{
 				    TaskCompletionSource<WireContext> tcs;
 				    do
 				    {
 				        tcs = _receivers.Take();
-				    } while (tcs.Task.IsCanceled);
+				    } while (tcs.Task.IsCanceled || tcs.Task.IsFaulted);
 				    tcs.SetResult(new WireContext(this, buf));
 				}
-				else if (_replyReceivers.ContainsKey(id.Value))
+				else
 				{
 					_replyReceivers[id.Value].SetResult(new WireContext(this, buf));
 					_replyReceivers.Remove(id.Value);
 				}
-				else
-				{
-                    TaskCompletionSource<WireContext> tcs;
-                    do
-                    {
-                        tcs = _receivers.Take();
-                    } while (tcs.Task.IsCanceled);
-				    tcs.SetResult(new WireContext(this, buf, id));
-				}				
 			}
 			catch (SocketException)
 			{
@@ -246,10 +237,7 @@ namespace WireBus
         /// <returns>a wire context describing the message received</returns>
         public Task<WireContext> ReceiveAsync(TimeSpan timeout)
         {
-            var cts = new CancellationTokenSource();
-            cts.CancelAfter(timeout);
-
-            return ReceiveAsync(cts.Token);
+            return ReceiveAsync(timeout, CancellationToken.None);
         }
 
         /// <summary>
@@ -258,10 +246,7 @@ namespace WireBus
         /// <returns>a wire context describing the message received</returns>
         public Task<WireContext> ReceiveAsync(int timeoutMilliseconds)
         {
-            var cts = new CancellationTokenSource();
-            cts.CancelAfter(timeoutMilliseconds);
-
-            return ReceiveAsync(cts.Token);
+            return ReceiveAsync(TimeSpan.FromMilliseconds(timeoutMilliseconds));
         }
 
         /// <summary>
@@ -270,10 +255,19 @@ namespace WireBus
         /// <returns>a wire context describing the message received</returns>
         public Task<WireContext> ReceiveAsync(TimeSpan timeout, CancellationToken token)
         {
-            var cts = new CancellationTokenSource();
-            cts.CancelAfter(timeout);
+            var source = new TaskCompletionSource<WireContext>();
+            
+            using (var timeoutCTS = new CancellationTokenSource())
+            {
+                timeoutCTS.CancelAfter(timeout);
+                timeoutCTS.Token.Register(() => source.TrySetException(new TimeoutException()));
+            }
 
-            return ReceiveAsync(CancellationTokenSource.CreateLinkedTokenSource(cts.Token, token).Token);
+            token.Register(() => source.TrySetCanceled());
+
+            _receivers.Add(source);
+
+            return source.Task;
         }
 
         /// <summary>

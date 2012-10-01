@@ -100,11 +100,11 @@ namespace WireBus
 				    {
 				        tcs = _receivers.Take();
 				    } while (tcs.Task.IsCanceled || tcs.Task.IsFaulted);
-				    tcs.SetResult(new WireContext(this, buf));
+				    tcs.SetResult(new WireContext(this, buf, id));
 				}
 				else
 				{
-					_replyReceivers[id.Value].SetResult(new WireContext(this, buf));
+					_replyReceivers[id.Value].SetResult(new WireContext(this, buf, id));
 					_replyReceivers.Remove(id.Value);
 				}
 			}

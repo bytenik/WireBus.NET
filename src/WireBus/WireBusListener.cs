@@ -24,8 +24,9 @@ namespace WireBus
 	    /// <param name="semantics">the connection semantics</param>
 	    public WireBusListener(IPEndPoint endpoint, ConnectionSemantics semantics = new ConnectionSemantics())
 	    {
-	        _semantics = semantics;
-	    }
+            _semantics = semantics;
+            _listener = new TcpListener(endpoint);
+        }
 
 	    /// <summary>
 		/// Create a new host configured to listen on all IP addresses with the specified port
@@ -49,15 +50,6 @@ namespace WireBus
 	        _semantics = semantics;
 	        _listener = new TcpListener(address, port);
 	    }
-
-	    /// <summary>
-		/// Creates a new host configured to listen on the specified IP and port
-		/// </summary>
-		/// <param name="endpoint">the local endpoint</param>
-		public WireBusListener(IPEndPoint endpoint)
-		{
-			_listener = new TcpListener(endpoint);
-		}
 
 		/// <summary>
 		/// Start listening for new connections.

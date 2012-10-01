@@ -94,6 +94,72 @@ namespace WireBus
 			}
 		}
 
+        public static Task IgnoreExceptions(this Task task)
+        {
+            task.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.NotOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously);
+            return task;
+        }
+
+        public static Task<T> IgnoreExceptions<T>(this Task<T> task)
+        {
+            task.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.NotOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously);
+            return task;
+        }
+
+        public static async Task TimeoutAsync(TimeSpan timeout)
+        {
+            await TaskEx.Delay(timeout);
+            throw new TimeoutException();
+        }
+
+        /// <summary>
+        /// A naive implementation of timeout and cancellation over an uncancellable <see cref="Task"/>.
+        /// </summary>
+        /// <typeparam name="T">The result type of the task</typeparam>
+        /// <param name="task">the uncancellable task</param>
+        /// <param name="timeout">timeout after which to give up</param>
+        /// <param name="token">token to monitor for cancellation</param>
+        /// <returns></returns>
+        public static async Task<T> NaiveTimeoutAndCancellation<T>(this Task<T> task, TimeSpan timeout, CancellationToken token)
+        {
+            task.IgnoreExceptions();
+
+            var timeoutTask = TimeoutAsync(timeout).IgnoreExceptions();
+            var cancelTask = token.ToTask().IgnoreExceptions();
+            
+            var resultTask = await TaskEx.WhenAny(task, timeoutTask, cancelTask);
+            if (resultTask == cancelTask)  // this should not happen -- cancelTask should cause the await to throw
+                throw new OperationCanceledException();
+            else if (resultTask == timeoutTask)
+                throw new TimeoutException();
+            else
+                return task.Result;
+        }
+
+        /// <summary>
+        /// A naive implementation of timeout and cancellation over an uncancellable <see cref="Task"/>.
+        /// </summary>
+        /// <param name="task">the uncancellable task</param>
+        /// <param name="timeout">timeout after which to give up</param>
+        /// <param name="token">token to monitor for cancellation</param>
+        /// <returns></returns>
+        public static async Task NaiveTimeoutAndCancellation<T>(this Task task, TimeSpan timeout, CancellationToken token)
+        {
+            task.IgnoreExceptions();
+
+            var timeoutTask = TimeoutAsync(timeout).IgnoreExceptions();
+            var cancelTask = token.ToTask().IgnoreExceptions();
+
+            var resultTask = await TaskEx.WhenAny(task, timeoutTask, cancelTask);
+            if (resultTask == cancelTask)  // this should not happen -- cancelTask should cause the await to throw
+                throw new OperationCanceledException();
+            else if (resultTask == timeoutTask)
+                throw new TimeoutException();
+        }
+
+	    private static readonly TaskCompletionSource<object> NeverCompleteSource = new TaskCompletionSource<object>();
+        public static Task NeverComplete { get { return NeverCompleteSource.Task; }}
+
         public static Task ToTask(this CancellationToken token)
         {
             var tcs = new TaskCompletionSource<object>();

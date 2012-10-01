@@ -47,6 +47,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConnectionSemantics.cs" />
     <Compile Include="TPLExtensions.cs" />
     <Compile Include="WireContext.cs" />
     <Compile Include="WireBusClient.cs" />

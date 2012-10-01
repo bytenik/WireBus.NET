@@ -22,28 +22,30 @@ namespace WireBus
 		private readonly Dictionary<uint, TaskCompletionSource<WireContext>> _replyReceivers = new Dictionary<uint, TaskCompletionSource<WireContext>>();
 		private readonly BlockingCollection<TaskCompletionSource<WireContext>> _receivers = new BlockingCollection<TaskCompletionSource<WireContext>>();
 
-        private readonly bool _clientMayReply;
-        private readonly bool _serverMayReply;
-        private readonly ushort? _clientFixedLength;
-	    private readonly ushort? _serverFixedLength;
+	    private readonly ConnectionSemantics _semantics;
 
         /// <summary>
         /// The remote endpoint of the client.
         /// </summary>
         public EndPoint RemoteEndPoint { get { return _socket.RemoteEndPoint; }}
 
-		internal WireBusClient(Socket socket, bool clientMayReply = true, ushort? clientFixedLength = null, bool serverMayReply = true, ushort? serverFixedLength = null)
+		internal WireBusClient(Socket socket, ConnectionSemantics semantics)
 		{
 			_socket = socket;
-            _clientMayReply = clientMayReply;
-		    _clientFixedLength = clientFixedLength;
-		    _serverMayReply = serverMayReply;
-		    _serverFixedLength = serverFixedLength;
+		    _semantics = semantics;
 
 		    ReceiveMessages();
 		}
 
-		private static async Task<int> SocketReceiveAsync(Socket s, byte[] buffer, int start, int length)
+        internal WireBusClient(Socket socket)
+        {
+            _socket = socket;
+            _semantics = new ConnectionSemantics();
+
+            ReceiveMessages();
+        }
+
+        private static async Task<int> SocketReceiveAsync(Socket s, byte[] buffer, int start, int length)
 		{
 			return await Task<int>.Factory.FromAsync(s.BeginReceive, s.EndReceive,
 				                            new List<ArraySegment<byte>> {new ArraySegment<byte>(buffer, start, length)},
@@ -57,7 +59,7 @@ namespace WireBus
                 var tinyBuf = new byte[sizeof(ushort)];
 			 
                 ushort length;
-                if (_serverFixedLength == null)
+                if (_semantics.PeerLength == null)
                 {
                     // read the message length (2 bytes)
                     await SocketReceiveAsync(_socket, tinyBuf, 0, sizeof (ushort));
@@ -66,26 +68,26 @@ namespace WireBus
                     length = BitConverter.ToUInt16(tinyBuf, 0);
                 }
                 else
-                    length = _serverFixedLength.Value;
+                    length = _semantics.PeerLength.Value;
 
                 uint? id;
-                if (_serverMayReply)
-                {
-                    // read the id (1 byte if no id, 4 bytes if there is)
-                    var idBuf = new byte[sizeof(uint)];
-                    await SocketReceiveAsync(_socket, idBuf, 0, 1);
-                    if (idBuf[0] == 0)
-                        id = null;
-                    else
-                    {
-                        await SocketReceiveAsync(_socket, idBuf, 1, sizeof(uint) - 1);
-                        if (!BitConverter.IsLittleEndian)
-                            Array.Reverse(tinyBuf);
-                        id = BitConverter.ToUInt32(idBuf, 0);
-                    }
-                }
-                else
-                    id = null;
+			    if (_semantics.DisableRequests)
+			        id = null;
+			    else
+			    {
+			        // read the id (1 byte if no id, 4 bytes if there is)
+			        var idBuf = new byte[sizeof (uint)];
+			        await SocketReceiveAsync(_socket, idBuf, 0, 1);
+			        if (idBuf[0] == 0)
+			            id = null;
+			        else
+			        {
+			            await SocketReceiveAsync(_socket, idBuf, 1, sizeof (uint) - 1);
+			            if (!BitConverter.IsLittleEndian)
+			                Array.Reverse(tinyBuf);
+			            id = BitConverter.ToUInt32(idBuf, 0);
+			        }
+			    }
 
 			    var buf = new byte[length];
 				for (int bytes = 0; bytes < length; )
@@ -120,15 +122,15 @@ namespace WireBus
 
 		internal async Task InternalSendAsync(byte[] message, uint? id)
 		{
-            if(_clientFixedLength != null && message.Length != _clientFixedLength)
-                throw new ArgumentOutOfRangeException("message", "Message must be exactly " + _clientFixedLength + " bytes; consider turning off fixed-length messages?");
+            if (_semantics.LocalLength != null && message.Length != _semantics.LocalLength)
+                throw new ArgumentOutOfRangeException("message", "Message must be exactly " + _semantics.LocalLength + " bytes; consider turning off fixed-length messages?");
 			if(message.LongLength > ushort.MaxValue)
 				throw new ArgumentOutOfRangeException("message", "Message cannot be more than " + uint.MaxValue + " bytes");
 
 		    int pos = 0;
             var buffer = new byte[sizeof(ushort) + sizeof(uint) + message.Length];
 
-            if (_clientFixedLength == null)
+            if (_semantics.LocalLength == null)
             {
                 var lengthBytes = BitConverter.GetBytes((ushort) message.Length);
                 if (!BitConverter.IsLittleEndian)
@@ -137,7 +139,7 @@ namespace WireBus
                 pos += lengthBytes.Length;
             }
 
-            if (_clientMayReply)
+            if (!_semantics.DisableRequests)
             {
                 if (id == null)
                 {
@@ -316,62 +318,102 @@ namespace WireBus
 			_replyReceivers.Clear();
 		}
 
-		/// <summary>
-		/// Connect to a peer, returning a new bus.
-		/// </summary>
-		/// <param name="host">the target host</param>
-		/// <param name="port">the target port</param>
-		/// <returns>the bus wrapping the new connection</returns>
-        public static Task<WireBusClient> ConnectAsync(string host, int port)
-		{
-			var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			return Task.Factory.FromAsync(socket.BeginConnect, socket.EndConnect, host, port, null)
-				.ContinueWith(task => new WireBusClient(socket));
-		}
+        #region Connect/ConnectAsync overloads
 
 	    /// <summary>
 	    /// Connect to a peer, returning a new bus.
 	    /// </summary>
 	    /// <param name="host">the target host</param>
 	    /// <param name="port">the target port</param>
-	    /// <param name="clientMayReply">whether or not the client can reply</param>
-        /// <param name="clientFixedLength">the client's fixed length, or null to use dynamic length</param>
-	    /// <param name="serverMayReply">whether or not the server can reply</param>
-	    /// <param name="serverFixedLength">the server's fixed length, or null to use dynamic length</param>
+	    /// <param name="semantics">the semantics of the connection</param>
 	    /// <returns>the bus wrapping the new connection</returns>
-	    public static Task<WireBusClient> ConnectAsync(string host, int port,
-            bool clientMayReply = true,
-            ushort? clientFixedLength = null,
-            bool serverMayReply = true,
-            ushort? serverFixedLength = null)
+	    public static Task<WireBusClient> ConnectAsync(string host, int port, ConnectionSemantics semantics = new ConnectionSemantics())
         {
             var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             return Task.Factory.FromAsync(socket.BeginConnect, socket.EndConnect, host, port, null)
-                .ContinueWith(task => new WireBusClient(socket, clientMayReply, clientFixedLength, serverMayReply, serverFixedLength));
+                .ContinueWith(task => new WireBusClient(socket, semantics));
         }
 
-		/// <summary>
-		/// Connect to a peer, returning a new bus.
-		/// </summary>
-		/// <param name="host">the target host</param>
-		/// <param name="port">the target port</param>
-		/// <returns>the bus wrapping the new connection</returns>
-		public static Task<WireBusClient> ConnectAsync(IPAddress host, int port)
-		{
-			var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			return Task.Factory.FromAsync(socket.BeginConnect, socket.EndConnect, host, port, null)
-				.ContinueWith(task => new WireBusClient(socket));
-		}
+	    /// <summary>
+	    /// Connect to a peer, returning a new bus.
+	    /// </summary>
+	    /// <param name="host">the target host</param>
+	    /// <param name="port">the target port</param>
+	    /// <param name="timeout">the timeout after which to give up</param>
+	    /// <param name="semantics">the semantics of the connection</param>
+	    /// <returns>the bus wrapping the new connection</returns>
+	    public static Task<WireBusClient> ConnectAsync(string host, int port, TimeSpan timeout, ConnectionSemantics semantics = new ConnectionSemantics())
+        {
+            return ConnectAsync(host, port, timeout, CancellationToken.None, semantics);
+        }
 
-		/// <summary>
-		/// Connect to a peer, returning a new bus.
-		/// </summary>
-		/// <param name="host">the target host</param>
-		/// <param name="port">the target port</param>
-		/// <returns>the bus wrapping the new connection</returns>
-		public static WireBusClient Connect(string host, int port)
+	    /// <summary>
+	    /// Connect to a peer, returning a new bus.
+	    /// </summary>
+	    /// <param name="host">the target host</param>
+	    /// <param name="port">the target port</param>
+	    /// <param name="millisecondsTimeout">the timeout in milliseconds after which to give up</param>
+	    /// <param name="semantics">the semantics of the connection</param>
+	    /// <returns>the bus wrapping the new connection</returns>
+	    public static Task<WireBusClient> ConnectAsync(string host, int port, int millisecondsTimeout, ConnectionSemantics semantics = new ConnectionSemantics())
+        {
+            return ConnectAsync(host, port, TimeSpan.FromMilliseconds(millisecondsTimeout), semantics);
+        }
+
+	    /// <summary>
+	    /// Connect to a peer, returning a new bus.
+	    /// </summary>
+	    /// <param name="host">the target host</param>
+	    /// <param name="port">the target port</param>
+	    /// <param name="token">token used to cancel connection attempt</param>
+	    /// <param name="semantics">the semantics of the connection</param>
+	    /// <returns>the bus wrapping the new connection</returns>
+	    public static Task<WireBusClient> ConnectAsync(string host, int port, CancellationToken token, ConnectionSemantics semantics = new ConnectionSemantics())
+        {
+            return ConnectAsync(host, port, TimeSpan.FromMilliseconds(-1), token, semantics);
+        }
+
+        /// <summary>
+        /// Connect to a peer, returning a new bus.
+        /// </summary>
+        /// <param name="host">the target host</param>
+        /// <param name="port">the target port</param>
+        /// <param name="semantics">the semantics of the connection</param>
+        /// <param name="timeout">the timeout after which to give up</param>
+        /// <param name="token">token used to cancel connection attempt</param>
+        /// <returns>the bus wrapping the new connection</returns>
+        public static Task<WireBusClient> ConnectAsync(string host, int port, TimeSpan timeout, CancellationToken token, ConnectionSemantics semantics = new ConnectionSemantics())
+        {
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            return Task.Factory.FromAsync(socket.BeginConnect, socket.EndConnect, host, port, null)
+                .ContinueWith(task => new WireBusClient(socket, semantics))
+                .NaiveTimeoutAndCancellation(timeout, token);
+        }
+
+	    /// <summary>
+	    /// Connect to a peer, returning a new bus.
+	    /// </summary>
+	    /// <param name="host">the target host</param>
+	    /// <param name="port">the target port</param>
+        /// <param name="semantics">the semantics of the connection</param>
+	    /// <returns>the bus wrapping the new connection</returns>
+	    public static Task<WireBusClient> ConnectAsync(IPAddress host, int port, ConnectionSemantics semantics = new ConnectionSemantics())
+        {
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            return Task.Factory.FromAsync(socket.BeginConnect, socket.EndConnect, host, port, null)
+                .ContinueWith(task => new WireBusClient(socket, semantics));
+        }
+
+	    /// <summary>
+	    /// Connect to a peer, returning a new bus.
+	    /// </summary>
+	    /// <param name="host">the target host</param>
+	    /// <param name="port">the target port</param>
+        /// <param name="semantics">the semantics of the connection</param>
+        /// <returns>the bus wrapping the new connection</returns>
+	    public static WireBusClient Connect(string host, int port, ConnectionSemantics semantics = new ConnectionSemantics())
 		{
-			var bus = ConnectAsync(host, port);
+			var bus = ConnectAsync(host, port, semantics);
 			return bus.Result;
 		}
 
@@ -380,14 +422,17 @@ namespace WireBus
 		/// </summary>
 		/// <param name="host">the target host</param>
 		/// <param name="port">the target port</param>
-		/// <returns>the bus wrapping the new connection</returns>
-		public static WireBusClient Connect(IPAddress host, int port)
+        /// <param name="semantics">the semantics of the connection</param>
+        /// <returns>the bus wrapping the new connection</returns>
+		public static WireBusClient Connect(IPAddress host, int port, ConnectionSemantics semantics = new ConnectionSemantics())
 		{
 			var bus = ConnectAsync(host, port);
 			return bus.Result;
 		}
 
-		/// <summary>
+        #endregion
+
+        /// <summary>
 		/// Dispose of the client
 		/// </summary>
 		public void Dispose()

@@ -106,10 +106,12 @@ namespace WireBus
             return task;
         }
 
-        public static async Task TimeoutAsync(TimeSpan timeout)
+        public static Task TimeoutAsync(TimeSpan timeout)
         {
-            await TaskEx.Delay(timeout);
-            throw new TimeoutException();
+            if (timeout == TimeSpan.FromMilliseconds(-1))
+                return NeverComplete;
+            else
+                return TaskEx.Delay(timeout).ContinueWith(t => { throw new TimeoutException(); });
         }
 
         /// <summary>

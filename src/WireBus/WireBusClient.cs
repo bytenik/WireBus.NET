@@ -328,11 +328,9 @@ namespace WireBus
 	    /// <param name="semantics">the semantics of the connection</param>
 	    /// <returns>the bus wrapping the new connection</returns>
 	    public static Task<WireBusClient> ConnectAsync(string host, int port, ConnectionSemantics semantics = new ConnectionSemantics())
-        {
-            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            return Task.Factory.FromAsync(socket.BeginConnect, socket.EndConnect, host, port, null)
-                .ContinueWith(task => new WireBusClient(socket, semantics));
-        }
+	    {
+	        return ConnectAsync(host, port, CancellationToken.None, semantics);
+	    }
 
 	    /// <summary>
 	    /// Connect to a peer, returning a new bus.
@@ -398,10 +396,64 @@ namespace WireBus
         /// <param name="semantics">the semantics of the connection</param>
 	    /// <returns>the bus wrapping the new connection</returns>
 	    public static Task<WireBusClient> ConnectAsync(IPAddress host, int port, ConnectionSemantics semantics = new ConnectionSemantics())
+	    {
+	        return ConnectAsync(host, port, CancellationToken.None, semantics);
+	    }
+
+        /// <summary>
+        /// Connect to a peer, returning a new bus.
+        /// </summary>
+        /// <param name="host">the target host</param>
+        /// <param name="port">the target port</param>
+        /// <param name="semantics">the semantics of the connection</param>
+        /// <param name="timeout">the timeout after which to give up</param>
+        /// <returns>the bus wrapping the new connection</returns>
+        public static Task<WireBusClient> ConnectAsync(IPAddress host, int port, TimeSpan timeout, ConnectionSemantics semantics = new ConnectionSemantics())
+        {
+            return ConnectAsync(host, port, timeout, CancellationToken.None, semantics);
+        }
+
+        /// <summary>
+        /// Connect to a peer, returning a new bus.
+        /// </summary>
+        /// <param name="host">the target host</param>
+        /// <param name="port">the target port</param>
+        /// <param name="millisecondsTimeout">the timeout in milliseconds after which to give up</param>
+        /// <param name="semantics">the semantics of the connection</param>
+        /// <returns>the bus wrapping the new connection</returns>
+        public static Task<WireBusClient> ConnectAsync(IPAddress host, int port, int millisecondsTimeout, ConnectionSemantics semantics = new ConnectionSemantics())
+        {
+            return ConnectAsync(host, port, TimeSpan.FromMilliseconds(millisecondsTimeout), CancellationToken.None, semantics);
+        }
+
+        /// <summary>
+        /// Connect to a peer, returning a new bus.
+        /// </summary>
+        /// <param name="host">the target host</param>
+        /// <param name="port">the target port</param>
+        /// <param name="semantics">the semantics of the connection</param>
+        /// <param name="token">token used to cancel connection attempt</param>
+        /// <returns>the bus wrapping the new connection</returns>
+        public static Task<WireBusClient> ConnectAsync(IPAddress host, int port, CancellationToken token, ConnectionSemantics semantics = new ConnectionSemantics())
+        {
+            return ConnectAsync(host, port, TimeSpan.FromMilliseconds(-1), token, semantics);
+        }
+
+        /// <summary>
+        /// Connect to a peer, returning a new bus.
+        /// </summary>
+        /// <param name="host">the target host</param>
+        /// <param name="port">the target port</param>
+        /// <param name="semantics">the semantics of the connection</param>
+        /// <param name="timeout">the timeout after which to give up</param>
+        /// <param name="token">token used to cancel connection attempt</param>
+        /// <returns>the bus wrapping the new connection</returns>
+        public static Task<WireBusClient> ConnectAsync(IPAddress host, int port, TimeSpan timeout, CancellationToken token, ConnectionSemantics semantics = new ConnectionSemantics())
         {
             var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             return Task.Factory.FromAsync(socket.BeginConnect, socket.EndConnect, host, port, null)
-                .ContinueWith(task => new WireBusClient(socket, semantics));
+                .ContinueWith(task => new WireBusClient(socket, semantics))
+                .NaiveTimeoutAndCancellation(timeout, token);
         }
 
 	    /// <summary>

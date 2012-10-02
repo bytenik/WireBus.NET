@@ -258,14 +258,9 @@ namespace WireBus
         public Task<WireContext> ReceiveAsync(TimeSpan timeout, CancellationToken token)
         {
             var source = new TaskCompletionSource<WireContext>();
-            
-            using (var timeoutCTS = new CancellationTokenSource())
-            {
-                timeoutCTS.CancelAfter(timeout);
-                timeoutCTS.Token.Register(() => source.TrySetException(new TimeoutException()));
-            }
 
-            token.Register(() => source.TrySetCanceled());
+            TaskEx.Delay(timeout).ContinueWith(t => source.TrySetException(new TimeoutException()), TaskContinuationOptions.ExecuteSynchronously); // timeout
+            token.Register(() => source.TrySetCanceled()); // cancel
 
             _receivers.Add(source);
 

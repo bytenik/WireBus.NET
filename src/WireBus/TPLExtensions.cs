@@ -106,12 +106,33 @@ namespace WireBus
             return task;
         }
 
-        public static Task TimeoutAsync(TimeSpan timeout)
+        public static Task TimeoutAsync(TimeSpan timeout, CancellationToken cancellationToken)
         {
-            if (timeout == TimeSpan.FromMilliseconds(-1))
+            if(timeout == TimeSpan.FromMilliseconds(-1))
                 return NeverComplete;
-            else
-                return TaskEx.Delay(timeout).ContinueWith(t => { throw new TimeoutException(); });
+            if (timeout < TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException("timeout", "Invalid timeout");
+
+            var tcs = new TaskCompletionSource<object>();
+            var ctr = new CancellationTokenRegistration();
+            var timer = new Timer(self =>
+                                      {
+                                          ctr.Dispose();
+                                          ((Timer) self).Dispose();
+                                          tcs.TrySetException(new TimeoutException());
+                                      });
+
+            if (cancellationToken.CanBeCanceled)
+            {
+                ctr = cancellationToken.Register(() =>
+                                                     {
+                                                         timer.Dispose();
+                                                         tcs.TrySetCanceled();
+                                                     });
+            }
+
+            timer.Change(timeout, TimeSpan.FromMilliseconds(-1));
+            return tcs.Task;
         }
 
         /// <summary>
@@ -126,16 +147,14 @@ namespace WireBus
         {
             task.IgnoreExceptions();
 
-            var timeoutTask = TimeoutAsync(timeout).IgnoreExceptions();
-            var cancelTask = token.ToTask().IgnoreExceptions();
-            
-            var resultTask = await TaskEx.WhenAny(task, timeoutTask, cancelTask);
-            if (resultTask == cancelTask)  // this should not happen -- cancelTask should cause the await to throw
-                throw new OperationCanceledException();
-            else if (resultTask == timeoutTask)
-                throw new TimeoutException();
-            else
-                return task.Result;
+            var timeoutTask = TimeoutAsync(timeout, CancellationToken.None);
+            var cancelTask = token.ToTask();
+
+            timeoutTask.IgnoreExceptions();
+            cancelTask.IgnoreExceptions();
+
+            await TaskEx.WhenAny(task, timeoutTask, cancelTask);
+            return task.Result;
         }
 
         /// <summary>
@@ -145,18 +164,17 @@ namespace WireBus
         /// <param name="timeout">timeout after which to give up</param>
         /// <param name="token">token to monitor for cancellation</param>
         /// <returns></returns>
-        public static async Task NaiveTimeoutAndCancellation<T>(this Task task, TimeSpan timeout, CancellationToken token)
+        public static async Task NaiveTimeoutAndCancellation(this Task task, TimeSpan timeout, CancellationToken token)
         {
             task.IgnoreExceptions();
 
-            var timeoutTask = TimeoutAsync(timeout).IgnoreExceptions();
-            var cancelTask = token.ToTask().IgnoreExceptions();
+            var timeoutTask = TimeoutAsync(timeout, CancellationToken.None);
+            var cancelTask = token.ToTask();
 
-            var resultTask = await TaskEx.WhenAny(task, timeoutTask, cancelTask);
-            if (resultTask == cancelTask)  // this should not happen -- cancelTask should cause the await to throw
-                throw new OperationCanceledException();
-            else if (resultTask == timeoutTask)
-                throw new TimeoutException();
+            timeoutTask.IgnoreExceptions();
+            cancelTask.IgnoreExceptions();
+
+            await TaskEx.WhenAny(task, timeoutTask, cancelTask);
         }
 
 	    private static readonly TaskCompletionSource<object> NeverCompleteSource = new TaskCompletionSource<object>();

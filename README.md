@@ -38,3 +38,6 @@ Reply to a message with the context's Reply or ReplyAsync method:
 
 We use this library at FivePM Technology, Inc. to efficiently send messages between our on-vehicle computers and our cloud-based platform.
 However, we think that this library will be useful for many other purposes and hope you find it useful for your project.
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/bytenik/wirebus.net/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
